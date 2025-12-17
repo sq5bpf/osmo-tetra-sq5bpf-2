@@ -380,6 +380,11 @@ int load_keystore(char *tetra_keyfile)
 
 struct tetra_key *get_key_by_addr(struct tetra_crypto_state *tcs, int addr, enum tetra_key_type key_type)
 {
+	        char tmpstr[1380];
+        sprintf(tmpstr,"TETMON_begin FUNC:CRYPTO_GET_KEY_BY_ADDR RX:%i ADDR:%i KEY_TYPE:%i TETMON_end",tetra_hack_rxid,addr,key_type);
+        sendto(tetra_hack_live_socket, (char *)&tmpstr, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+
+
 	for (int i = 0; i < tcdb->num_keys; i++) {
 		struct tetra_key *key = &tcdb->keys[i];
 		if (key->mnc == tcs->mnc &&
@@ -402,6 +407,9 @@ struct tetra_key *get_ksg_key(struct tetra_crypto_state *tcs, int addr)
 	Class 3:	+	+	?	+
 	--------------------------------------------
 	*/
+        char tmpstr[1380];
+        sprintf(tmpstr,"TETMON_begin FUNC:GET_KSG_KEY RX:%i ADDR:%i TETMON_end",tetra_hack_rxid,addr);
+        sendto(tetra_hack_live_socket, (char *)&tmpstr, 128, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
 
 	if (!tcs->network)
 		/* No tetra_netinfo from the db set for this network */

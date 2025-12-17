@@ -6,7 +6,12 @@
 #include <stdbool.h>
 #include <osmocom/core/linuxlist.h>
 
-#include "tetra_common.h"
+#include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+
 #include "tetra_mac_pdu.h"
 
 #ifdef DEBUG
@@ -39,6 +44,56 @@ enum tetra_log_chan {
 };
 
 uint32_t bits_to_uint(const uint8_t *bits, unsigned int len);
+
+/* tetra hack --sq5bpf */
+#define HACK_MAX_TIME 5
+#define HACK_LIVE_MAX_TIME 1
+#define HACK_NUM_STRUCTS 256
+struct tetra_hack_struct {
+        uint32_t ssi;
+        uint32_t ssi2;
+        time_t lastseen;
+        int is_encr;
+        char curfile[100];
+        char comment[100];
+        uint16_t callident;
+        int seen; /* did we see it before */
+};
+
+extern struct  tetra_hack_struct tetra_hack_db[HACK_NUM_STRUCTS];
+
+
+extern int tetra_hack_live_socket;
+extern struct sockaddr_in tetra_hack_live_sockaddr;
+extern int tetra_hack_socklen;
+
+extern int tetra_hack_live_idx;
+extern int tetra_hack_live_lastseen;
+extern int tetra_hack_rxid;
+
+extern int tetra_hack_packet_counter; /* counts packets, wraps around on 65536, can be used for periodic actions */
+
+extern uint32_t tetra_hack_dl_freq, tetra_hack_ul_freq;
+extern uint16_t tetra_hack_la;
+
+extern uint8_t  tetra_hack_freq_band;
+extern uint8_t  tetra_hack_freq_offset;
+
+#define ENCOPTION_UNKNOWN 0
+#define ENCOPTION_DISABLED 1
+#define ENCOPTION_ENABLED 2
+extern int  tetra_hack_encoption;
+
+extern uint8_t tetra_hack_seen_encryptions;
+
+
+//int tetra_hack_reassemble_fragments;
+extern int tetra_hack_all_sds_as_text;
+extern int tetra_hack_allow_encrypted;
+void send_encinfo(int send_anyway);
+
+/* end tetra hack --sq5bpf */
+
 
 #include "tetra_tdma.h"
 struct tetra_phy_state {

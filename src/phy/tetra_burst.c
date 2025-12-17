@@ -274,6 +274,9 @@ int tetra_find_train_seq(const uint8_t *in, unsigned int end_of_in,
 {
 	static uint32_t tsq_bytes[5];
 
+	/* almost like improoved -sq5bpf */
+#ifdef INPROOVED_SYNC
+
 	if (tsq_bytes[0] == 0) {
 #define FILTER_LOOKAHEAD_LEN 22
 #define FILTER_LOOKAHEAD_MASK ((1<<FILTER_LOOKAHEAD_LEN)-1)
@@ -290,10 +293,11 @@ int tetra_find_train_seq(const uint8_t *in, unsigned int end_of_in,
 
 	for (int i = 0; i < FILTER_LOOKAHEAD_LEN-2; i++)
 		filter = (filter << 1) | in[i];
-
+#endif
 	const uint8_t *cur;
 
 	for (cur = in; cur < in + end_of_in; cur++) {
+#ifdef INPROOVED_SYNC
 		filter = ((filter << 1) | cur[FILTER_LOOKAHEAD_LEN-1]) & FILTER_LOOKAHEAD_MASK;
 
 		int match = 0;
@@ -304,7 +308,7 @@ int tetra_find_train_seq(const uint8_t *in, unsigned int end_of_in,
 
 		if (!match)
 			continue;
-
+#endif
 		int remain_len = (in + end_of_in) - cur;
 
 		if (mask_of_train_seq & (1 << TETRA_TRAIN_SYNC) &&
