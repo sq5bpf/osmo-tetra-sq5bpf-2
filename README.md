@@ -1,3 +1,28 @@
+This is my fork of the fork of BorjanEch0/osmo-tetra from here:
+https://github.com/BorjanEch0/osmo-tetra
+
+Which is a fork of the original Osmocom TETRA MAC/PHY experimentation code from here:
+https://gitea.osmocom.org/tetra/osmo-tetra
+
+Which incorporates some of my patches from here:
+https://github.com/sq5bpf/osmo-tetra-sq5bpf
+
+
+Basically i'm re-adding ma patches for telive to the new version.
+
+This is work in progress, don't expect it to work, and if it does don't
+expect it to do anything useful or not break your stuff. 
+Actually you're lucky if it even compiles.
+
+
+The new osmo-tetra versions will coredump with a lot of real world 
+traffic, so this fork will do it too.
+
+
+Jacek / SQ5BPF
+
+
+
 TETRA MAC/PHY layer experimentation code
 ========================================
 
