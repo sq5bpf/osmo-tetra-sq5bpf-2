@@ -214,15 +214,6 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 		FILE *f;
 		int i;
 
-		/* Open target file */
-		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.out", tms->dumpdir,
-			tms->cur_burst.is_traffic, tms->tsn);
-		f = fopen(fname, "ab");
-		if (!f) {
-			fprintf(stderr, "Could not open dump file %s for writing: %s\n", fname, strerror(errno));
-			exit(1);
-		}
-
 		/* Generate a block */
 		memset(block, 0x00, sizeof(int16_t) * 690);
 		for (i = 0; i < 6; i++)
@@ -240,6 +231,16 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 		for (i = 0; i < 90; i++)
 			block[346+i] = type4[342+i] ? -127 : 127;
 
+		if (tms->dumpdir) {
+		/* Open target file */
+		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.out", tms->dumpdir,
+			tms->cur_burst.is_traffic, tms->tsn);
+		f = fopen(fname, "ab");
+		if (!f) {
+			fprintf(stderr, "Could not open dump file %s for writing: %s\n", fname, strerror(errno));
+			exit(1);
+		}
+
 		/* Write it */
 		fwrite(block, sizeof(int16_t), 690, f);
 		fclose(f);
@@ -250,6 +251,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 		f = fopen(fname, "a");
 		fprintf(f, "%d\n", tms->ssi);
 		fclose(f);
+		}
 
                 /* send voice frames for further processing --sq5bpf */
                 if (tetra_hack_live_socket) {
