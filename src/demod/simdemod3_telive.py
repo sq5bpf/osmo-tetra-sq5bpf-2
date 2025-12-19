@@ -5,9 +5,9 @@
 # SPDX-License-Identifier: GPL-3.0
 #
 # GNU Radio Python Flow Graph
-# Title: DQPSK demodulator for Telive, with the AFC packet sending option disabled
+# Title: DQPSK demodulator for Telive, with the AFC packet sending option enabled
 # Author: Jacek Lipkowski SQ5BPF
-# Description: cqpsk demodulator for tetra. based on  pi4dqpsk_rx.grc (by 'Luca Bortolotti' @optiluca) from https://gitlab.com/larryth/tetra-kit/ . It is meant as a replacement for simdemod2.py, taked the data from stdin, and dumpd demodulated data to STDOUT. Also sends via UDP the information how much the signal is mistuned (this option is disabled for the version committed to osmo-tetra)
+# Description: cqpsk demodulator for tetra. based on  pi4dqpsk_rx.grc (by 'Luca Bortolotti' @optiluca) from https://gitlab.com/larryth/tetra-kit/ . It is meant as a replacement for simdemod2.py, takes the data from stdin, and dumps demodulated data to STDOUT. Also sends via UDP the information how much the signal is mistuned
 # GNU Radio version: 3.10.5.1
 
 from gnuradio import analog
@@ -23,14 +23,15 @@ from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
 import cmath
 import os
+import simdemod3_telive_send_udp_to_telive as send_udp_to_telive  # embedded python block
 
 
 
 
-class simdemod3(gr.top_block):
+class simdemod3_telive(gr.top_block):
 
     def __init__(self):
-        gr.top_block.__init__(self, "DQPSK demodulator for Telive, with the AFC packet sending option disabled", catch_exceptions=True)
+        gr.top_block.__init__(self, "DQPSK demodulator for Telive, with the AFC packet sending option enabled", catch_exceptions=True)
 
         ##################################################
         # Variables
@@ -45,12 +46,16 @@ class simdemod3(gr.top_block):
         self.decim = decim = 32
         self.channel_rate = channel_rate = 36000
         self.arity = arity = 4
+        self.TETRA_HACK_RXID = TETRA_HACK_RXID = int(os.getenv('TETRA_HACK_RXID')) if os.getenv('TETRA_HACK_RXID') else 0
+        self.TETRA_HACK_PORT = TETRA_HACK_PORT = int(os.getenv('TETRA_HACK_PORT')) if os.getenv('TETRA_HACK_PORT') else 7379
+        self.TETRA_HACK_IP = TETRA_HACK_IP = os.getenv('TETRA_HACK_IP') if os.getenv('TETRA_HACK_IP') else "127.0.0.1"
 
         ##################################################
         # Blocks
         ##################################################
 
         self.stdout_sink = blocks.file_descriptor_sink(gr.sizeof_char*1, 1)
+        self.send_udp_to_telive = send_udp_to_telive.blk(ntimes=5, rxid=TETRA_HACK_RXID, port=TETRA_HACK_PORT, ip=TETRA_HACK_IP, scaling=100)
         self.digital_pfb_clock_sync_xxx_0 = digital.pfb_clock_sync_ccf(sps, (2*cmath.pi/100.0), rrc_taps, nfilts, (nfilts/2), 1.5, sps)
         self.digital_map_bb_0 = digital.map_bb(constel.pre_diff_code())
         self.digital_linear_equalizer_0 = digital.linear_equalizer(15, sps, variable_adaptive_algorithm_0, True, [ ], 'corr_est')
@@ -71,10 +76,11 @@ class simdemod3(gr.top_block):
         self.connect((self.blocks_unpack_k_bits_bb_0, 0), (self.stdout_sink, 0))
         self.connect((self.digital_constellation_decoder_cb_0, 0), (self.digital_map_bb_0, 0))
         self.connect((self.digital_diff_phasor_cc_0, 0), (self.digital_constellation_decoder_cb_0, 0))
+        self.connect((self.digital_fll_band_edge_cc_0, 1), (self.blocks_null_sink_0, 0))
         self.connect((self.digital_fll_band_edge_cc_0, 2), (self.blocks_null_sink_0, 1))
         self.connect((self.digital_fll_band_edge_cc_0, 3), (self.blocks_null_sink_0, 2))
-        self.connect((self.digital_fll_band_edge_cc_0, 1), (self.blocks_null_sink_0, 0))
         self.connect((self.digital_fll_band_edge_cc_0, 0), (self.digital_pfb_clock_sync_xxx_0, 0))
+        self.connect((self.digital_fll_band_edge_cc_0, 1), (self.send_udp_to_telive, 0))
         self.connect((self.digital_linear_equalizer_0, 0), (self.digital_diff_phasor_cc_0, 0))
         self.connect((self.digital_map_bb_0, 0), (self.blocks_unpack_k_bits_bb_0, 0))
         self.connect((self.digital_pfb_clock_sync_xxx_0, 0), (self.digital_linear_equalizer_0, 0))
@@ -137,10 +143,28 @@ class simdemod3(gr.top_block):
     def set_arity(self, arity):
         self.arity = arity
 
+    def get_TETRA_HACK_RXID(self):
+        return self.TETRA_HACK_RXID
+
+    def set_TETRA_HACK_RXID(self, TETRA_HACK_RXID):
+        self.TETRA_HACK_RXID = TETRA_HACK_RXID
+
+    def get_TETRA_HACK_PORT(self):
+        return self.TETRA_HACK_PORT
+
+    def set_TETRA_HACK_PORT(self, TETRA_HACK_PORT):
+        self.TETRA_HACK_PORT = TETRA_HACK_PORT
+
+    def get_TETRA_HACK_IP(self):
+        return self.TETRA_HACK_IP
+
+    def set_TETRA_HACK_IP(self, TETRA_HACK_IP):
+        self.TETRA_HACK_IP = TETRA_HACK_IP
 
 
 
-def main(top_block_cls=simdemod3, options=None):
+
+def main(top_block_cls=simdemod3_telive, options=None):
     tb = top_block_cls()
 
     def sig_handler(sig=None, frame=None):

@@ -1,62 +1,42 @@
 #!/bin/bash
-# This is an example how to use simdemod2.py and simdemod3_py3.py --sq5bpf
+# This is an example how to use simdemod3_telive --sq5bpf
 
-#Changelog:
-#20230731: added options for gnuradio 3.8 and later and python3 --sq5bpf
-#20160302: add udp socket option --sq5bpf
-#20151102: see if the fifo exists, and if it is really a fifo --sq5bpf
+# This was originally written for telive, but can be used with other software
 
-# you can also set GR_VERSION yourself outside of this script --sq5bpf
-[ "$GR_VERSION" ] || GR_VERSION=`gnuradio-config-info -v|cut -d . -f 1-2|tr -d v`
-case $GR_VERSION in
-	3.6) 
-		GR_DIR=gnuradio-3.6
-		PYT=2
-		DEMOD=demod/${GR_DIR}/simdemod2.py
-		;;
-	3.7) 
-		GR_DIR=gnuradio-3.7
-		PYT=2
-		DEMOD=demod/${GR_DIR}/simdemod2.py
-		;;
-	3.8 | 3.9 | 3.10 | 3.11) 
-		echo aaaa
-		GR_DIR=python-3.10 #hack: only tried 3.10, but maybe other versions will work to? --sq5bpf
-		PYT=3
-		DEMOD=demod/simdemod3.py
-		;;
-	*)		
-		echo "Unsuported gnuradio version $GR_VERSION"
-		exit 1
-		;;
-esac
+# note: originally when i write the receiver* scripts they supported gnuradio 3.7 and below.
+# these versions did work better for our purposes and had working wxgui which had 
+# much better responsiveness. this has been removed, we have to move on to newer versions
 
-export TETRA_HACK_PORT=7379 #i might as well have made this a command line parameter, oh well :)
-export TETRA_HACK_IP=127.0.0.1 #you can send to another host too
-export TETRA_HACK_RXID=$1
-UDP_PORT=$((42000+$1))
+# also udp is not the only option. other options (pipes, zmq) have been removed because
+# they were rarely used and confused users
+
+read  major minor rest < <( gnuradio-config-info -v | tr '.' ' ' )
+version=$((100*$major+$minor))
+
+echo "gnuradio version $version"
+if [ "$version" -lt 308 ]; then
+echo "gnuradio versions lower than 3.8 are not supported"
+exit 1
+fi
+
+if [ "$version" -ge 400 ]; then
+	# dont allow gnuradio 4.0 just in case. it does not exist yet, but judging by the breakage from 3.7 to 3.8 this is a good idea
+	echo "i don't think that gnuradio versions 4.0 and higher are supported, cowardly refusing to run"
+	exit 2
+fi
+
+# these env variables are used both by simdemod3_telive.py and by tetra-rx
+export TETRA_HACK_PORT=7379 #port on which telive listens, i might as well have made this a command line parameter, oh well :)
+export TETRA_HACK_IP=127.0.0.1 #ip on which telive listens, you can send to another host too
+
+# receiver identifier from command line parameter, 1 if none given
+TETRA_HACK_RXID=1; [ "$1" ] && export TETRA_HACK_RXID=$1
+UDP_PORT=$((42000+$TETRA_HACK_RXID))
 
 
 ulimit -c unlimited
 
 #tetra-rx args: -a turns on pseudo-afc , -i uses an internal float_t_bits
 # -r turns on fragment reassembly, -s tries to dump unknown SDS protocols as text
-#
-#if you have problems with the receiver, then try to remove -a
-
-case "$PYT" in
-	2)
-		#socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | demod/${GR_DIR}/simdemod2.py -o /dev/stdout -i /dev/stdin | ./tetra-rx -a -r -s -i /dev/stdin 
-		socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | $DEMOD -o /dev/stdout -i /dev/stdin | ./tetra-rx -a -r -s -i /dev/stdin 
-		;;
-	3)
-		#socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | demod/${GR_DIR}/simdemod_py3.py | ~/tetra/osmo-tetra-sq5bpf/src/tetra-rx -r -s  /dev/stdin
-		socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | $DEMOD | ~/tetra/osmo-tetra-sq5bpf/src/tetra-rx -r -s  /dev/stdin
-		;;
-	*)
-		echo "Dont know how to handle python version [$PYT]" 
-		exit 1
-esac
-
-
-
+# modify as needed
+socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | demod/simdemod3_telive.py | ./tetra-rx -r -s  /dev/stdin 

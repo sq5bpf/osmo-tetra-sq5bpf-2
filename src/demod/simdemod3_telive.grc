@@ -8,14 +8,13 @@ options:
     copyright: ''
     description: cqpsk demodulator for tetra. based on  pi4dqpsk_rx.grc (by 'Luca
       Bortolotti' @optiluca) from https://gitlab.com/larryth/tetra-kit/ . It is meant
-      as a replacement for simdemod2.py, taked the data from stdin, and dumpd demodulated
+      as a replacement for simdemod2.py, takes the data from stdin, and dumps demodulated
       data to STDOUT. Also sends via UDP the information how much the signal is mistuned
-      (this option is disabled for the version committed to osmo-tetra)
     gen_cmake: 'On'
     gen_linking: dynamic
     generate_options: no_gui
     hier_block_src_path: '.:'
-    id: simdemod3
+    id: simdemod3_telive
     max_nouts: '0'
     output_language: python
     placement: (0,0)
@@ -26,7 +25,7 @@ options:
     run_options: run
     sizing_mode: fixed
     thread_safe_setters: ''
-    title: DQPSK demodulator for Telive, with the AFC packet sending option disabled
+    title: DQPSK demodulator for Telive, with the AFC packet sending option enabled
     window_size: (1000,1000)
   states:
     bus_sink: false
@@ -48,7 +47,7 @@ blocks:
     bus_structure: null
     coordinate: [304, 92.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: TETRA_HACK_PORT
   id: variable
   parameters:
@@ -61,7 +60,7 @@ blocks:
     bus_structure: null
     coordinate: [416, 92.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: TETRA_HACK_RXID
   id: variable
   parameters:
@@ -74,7 +73,7 @@ blocks:
     bus_structure: null
     coordinate: [176, 92.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: arity
   id: variable
   parameters:
@@ -423,19 +422,20 @@ blocks:
       \ them are required to have default values!\n\"\"\"\n\nimport numpy as np\n\
       from gnuradio import gr\nimport socket\n\nclass blk(gr.sync_block):  # other\
       \ base classes are basic_block, decim_block, interp_block\n    \"\"\"Embedded\
-      \ Python Block - periodically send UDP packet to telive\"\"\"\n\n    def __init__(self,\
-      \ ntimes=10, rxid=0, port=7379, ip=\"127.0.0.1\",scaling=10):  # only default\
-      \ arguments here\n        \"\"\"arguments to this function show up as parameters\
-      \ in GRC\"\"\"\n        gr.sync_block.__init__(\n            self,\n       \
-      \     name='Send UDP messages to telive',   # will show up in GRC\n        \
-      \    in_sig=[np.float32],\n            out_sig=None\n        )\n        # if\
-      \ an attribute with the same name as a parameter is found,\n        # a callback\
-      \ is registered (properties work, too).\n        self.sock = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\n\
-      \        self.counter=0\n        self.ntimes=ntimes\n        self.tetra_hack_rxid=int(rxid)\n\
-      \        self.tetra_hack_ip=str(ip)\n        self.tetra_hack_port=int(port)\n\
-      \        self.tetra_hack_scaling=scaling\n        \n        \n\n    def work(self,\
+      \ Python Block - periodically send UDP packet with AFC info to telive\"\"\"\n\
+      \n    def __init__(self, ntimes=10, rxid=0, port=7379, ip=\"127.0.0.1\",scaling=10):\
+      \  # only default arguments here\n        \"\"\"arguments to this function show\
+      \ up as parameters in GRC\"\"\"\n        gr.sync_block.__init__(\n         \
+      \   self,\n            name='Send UDP messages with AFC info to telive',   #\
+      \ will show up in GRC\n            in_sig=[np.float32],\n            out_sig=None\n\
+      \        )\n        # if an attribute with the same name as a parameter is found,\n\
+      \        # a callback is registered (properties work, too).\n        self.sock\
+      \ = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)\n        self.counter=0\n\
+      \        self.ntimes=ntimes\n        self.tetra_hack_rxid=int(rxid)\n      \
+      \  self.tetra_hack_ip=str(ip)\n        self.tetra_hack_port=int(port)\n    \
+      \    self.tetra_hack_scaling=scaling\n        \n        \n\n    def work(self,\
       \ input_items, output_items):\n        \"\"\"example: multiply with constant\"\
-      \"\"\n        self.counter=(self.counter+1)%self.ntimes\n        if self.counter==0:\n\
+      \"\"\n        self.counter=(self.counter+1)%self.ntimes\n\n        if self.counter==0:\n\
       \            mmm=\"TETMON_begin FUNC:AFCVAL AFC:%i RX:%i TETMON_end\" % ( int\
       \ (input_items[0][0] * self.tetra_hack_scaling * - 1.0), self.tetra_hack_rxid)\n\
       \            message=bytes(mmm, \"utf-8\")\n            self.sock.sendto(message,\
@@ -452,15 +452,16 @@ blocks:
     rxid: TETRA_HACK_RXID
     scaling: '100'
   states:
-    _io_cache: ('Send UDP messages to telive', 'blk', [('ntimes', '10'), ('rxid',
-      '0'), ('port', '7379'), ('ip', "'127.0.0.1'"), ('scaling', '10')], [('0', 'float',
-      1)], [], 'Embedded Python Block - periodically send UDP packet to telive', ['ntimes'])
+    _io_cache: ('Send UDP messages with AFC info to telive', 'blk', [('ntimes', '10'),
+      ('rxid', '0'), ('port', '7379'), ('ip', "'127.0.0.1'"), ('scaling', '10')],
+      [('0', 'float', 1)], [], 'Embedded Python Block - periodically send UDP packet
+      with AFC info to telive', ['ntimes'])
     bus_sink: false
     bus_source: false
     bus_structure: null
     coordinate: [960, 140.0]
     rotation: 0
-    state: disabled
+    state: enabled
 - name: stdout_sink
   id: blocks_file_descriptor_sink
   parameters:
