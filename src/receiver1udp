@@ -30,7 +30,7 @@ export TETRA_HACK_PORT=7379 #port on which telive listens, i might as well have 
 export TETRA_HACK_IP=127.0.0.1 #ip on which telive listens, you can send to another host too
 
 # receiver identifier from command line parameter, 1 if none given
-TETRA_HACK_RXID=1; [ "$1" ] && export TETRA_HACK_RXID=$1
+export TETRA_HACK_RXID=1; [ "$1" ] && export TETRA_HACK_RXID=$1
 UDP_PORT=$((42000+$TETRA_HACK_RXID))
 
 
