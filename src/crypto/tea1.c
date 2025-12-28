@@ -128,12 +128,14 @@ void tea1_inner(uint64_t qwIvReg, uint32_t dwKeyReg, uint32_t dwNumKsBytes, uint
 	}
 }
 
-void tea1(uint32_t dwFrameNumbers, const uint8_t *lpKey, uint32_t dwNumKsBytes, uint8_t *lpKsOut)
-{
-	/* Initialize IV and key register */
-	uint64_t qwIvReg = tea1_expand_iv(dwFrameNumbers);
-	uint32_t dwKeyReg = tea1_init_key_register(lpKey);
 
-	/* Invoke actual TEA1 core function */
-	tea1_inner(qwIvReg, dwKeyReg, dwNumKsBytes, lpKsOut);
+void tea1(uint32_t dwFrameNumbers, const uint8_t *lpKey, uint32_t dwNumKsBytes, uint8_t *lpKsOut) {
+    
+    // Initialize IV and key register
+    uint64_t qwIvReg = tea1_expand_iv(dwFrameNumbers);
+   // uint32_t dwKeyReg = tea1_init_key_register(lpKey);
+    uint32_t dwKeyReg = lpKey[0] << 24 | lpKey[1] << 16 | lpKey[2] << 8 | lpKey[3];
+    // Invoke actual TEA1 core function
+    tea1_inner(qwIvReg, dwKeyReg, dwNumKsBytes, lpKsOut);
 }
+
