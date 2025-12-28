@@ -159,16 +159,43 @@ static bool generate_keystream(struct tetra_crypto_state *tcs, struct tetra_key 
 {
 	if (!key)
 		return false;
-
+    
 	/* Construct IV and prepare buf for bytewise keystream */
+	
+	uint8_t abCk[4];
+	char k[] = "XXXXXXXX";
+	memset(abCk, 0, sizeof(abCk));
 	int num_bytes = (num_bits + 7) / 8;
 	uint8_t ks_bytes[num_bytes];
 	uint32_t iv = tea_build_iv(t, tcs->hn, 0);
+	//printf("Building IV for: %20X/%20X%20X/%20X\n", tcs->hn,t->mn,t->fn,t->tn);
+	
+	uint64_t expIv = tea1_expand_iv(iv);
+    //printf("Expanded IV %20X",expIv);
+    
+    //abCk[0]= (k>>24) & 0xFF;
+    //abCk[1]= (k>>16) & 0xFF;
+    //abCk[2]= (k>>8) & 0xFF;
+    //abCk[3]= k & 0xFF;
+    for (int i=0;i<4;i++)
+    {
+    	sscanf(&k[i*2],"%2hhX",&abCk[i]);
+    	//printf("fill",i);
+    }
+	
+	printf("%02X%02X%02X%02X --- ",abCk[0],abCk[1],abCk[2],abCk[3]);
+   // uint32_t dwKeyReg = abCk[0] << 24 | abCk[1] << 16 | abCk[2] << 8 | abCk[3];
+    printf("IV %d ",iv);
+    printf("expand IV %d ",expIv);
+    //printf("dwkeyreg %d",dwKeyReg);
+    printf("numbytes %d ",num_bytes);
+    printf("ks bytes %d ",ks_bytes);
+    //tea1_inner(expIv, dwKeyReg, num_bytes ,ks_bytes);
 
 	/* Compute ECK from net info and CK */
-	if (tcs->cn < 0 || tcs->la < 0 || tcs->cc < 0)
+	//if (tcs->cn < 0 || tcs->la < 0 || tcs->cc < 0)
 		/* Missing data for TB5 */
-		return false;
+	//	return false;
 
 	uint8_t eck[10];
 	uint8_t cn[2] = {(tcs->cn >> 8) & 0xFF, tcs->cn & 0xFF};
@@ -179,7 +206,7 @@ static bool generate_keystream(struct tetra_crypto_state *tcs, struct tetra_key 
 	/* Generate keystream with required KSG */
 	switch (key->network_info->ksg_type) {
 	case KSG_TEA1:
-		tea1(iv, eck, num_bytes, ks_bytes);
+		tea1(iv, abCk, num_bytes, ks_bytes);
 		break;
 
 	case KSG_TEA2:
@@ -194,10 +221,19 @@ static bool generate_keystream(struct tetra_crypto_state *tcs, struct tetra_key 
 		fprintf(stderr, "tetra_crypto: KSG type %d not supported\n", key->network_info->ksg_type);
 		return false;
 	}
-
+	
 	/* Expand keystream bytes into ubit format */
-	for (int i = 0; i < num_bits; i++)
+	for (int i = 0; i < num_bits; i++){
 		ks_out[i] = (ks_bytes[i / 8] >> (7-(i % 8))) & 1;
+		//printf("%04X  ", ks_out[i]);
+		}
+		
+		
+		printf("ks:");
+	
+    for (int i = 0; i < num_bytes; i++) 
+        printf("%02X  ", ks_bytes[i]);
+        
 
 	return true;
 }
@@ -245,7 +281,7 @@ bool decrypt_mac_element(struct tetra_crypto_state *tcs, struct tetra_tmvsap_pri
 	for (int i = 0; i < ct_len; i++)
 		ct_start[i] = ct_start[i] ^ ks[i + ks_skip_bits];
 
-	printf("tetra_crypto: addr %8d -> key %4d, time %5d/%s, tmpdu offset %d, decrypting %d bits\n",
+	printf("tetra_crypto: ks %137d addr %8d -> key %4d, time %5d/%s, tmpdu offset %d, decrypting %d bits\n",ks[ks_num_bits],
 		key->addr, key->index, tcs->hn, tetra_tdma_time_dump(tdma_time), tmpdu_offset, ct_len);
 
 	return true;
@@ -272,6 +308,7 @@ bool decrypt_voice_timeslot(struct tetra_crypto_state *tcs, struct tetra_tdma_ti
 
 	/* Apply keystream */
 	for (int i = 0; i < 137; i++) {
+		//printf(" %d on %d - ",type1_block[i],ks[i]);
 		type1_block[i + 1] = type1_block[i + 1] ^ ks[i];
 		type1_block[i + 139] = type1_block[i + 139] ^ ks[i + 137];
 	}
