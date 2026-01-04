@@ -42,6 +42,7 @@ enum tetra_key_type {
 	KEYTYPE_DCK			= 2, /* FIXME: add support for DCK */
 	KEYTYPE_MGCK			= 4, /* FIXME: add support for MGCK */
 	KEYTYPE_GCK			= 8, /* FIXME: add support. Used with SCK/CCK to derive MGCK */
+	KEYTYPE_SHORT32			= 16, /* directly provide the 32-bit output of the TEA1 key weakening function --sq5bpf */
 };
 
 enum tetra_ksg_type {
@@ -113,6 +114,7 @@ int load_keystore(char *filename);
 uint32_t tea_build_iv(struct tetra_tdma_time *tm, uint16_t hn, uint8_t dir);
 bool decrypt_identity(struct tetra_crypto_state *tcs, struct tetra_addr *addr);
 bool decrypt_mac_element(struct tetra_crypto_state *tcs, struct tetra_tmvsap_prim *tmvp, struct tetra_key *key, int l1_len, int tmpdu_offset);
+bool get_voice_keystream(struct tetra_crypto_state *tcs, struct tetra_tdma_time *tdma_time, uint8_t *ks,int ks_num_bits);
 bool decrypt_voice_timeslot(struct tetra_crypto_state *tcs, struct tetra_tdma_time *tdma_time, int16_t *type1_bits);
 
 /* Key selection and crypto state management */

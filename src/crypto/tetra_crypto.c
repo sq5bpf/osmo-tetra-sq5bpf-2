@@ -6,6 +6,11 @@
  *
  * SPDX-License-Identifier: AGPL-3.0+
  *
+ * NOTE: this has been patched from the original to support
+ * 32bit TEA1 short key and interfacing with telive
+ * Please don't bug the original authors about bugs resulting from these modifications
+ * Jacek Lipkowski <sq5bpf@lipkowski.org>
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -47,6 +52,7 @@ static const struct value_string tetra_key_types[] = {
 	{ KEYTYPE_DCK,			"DCK" },
 	{ KEYTYPE_MGCK,			"MGCK" },
 	{ KEYTYPE_GCK,			"GCK" },
+	{ KEYTYPE_SHORT32,		"SHORT32" },
 	{ 0, NULL }
 };
 
@@ -128,7 +134,7 @@ char *dump_key(struct tetra_key *k)
 	if (k->key_type & (KEYTYPE_DCK | KEYTYPE_MGCK))
 		c += snprintf(pbuf + c, sizeof(pbuf) - c, " addr: %8d", k->addr);
 
-	if (k->key_type & (KEYTYPE_CCK_SCK))
+	if ((k->key_type & (KEYTYPE_CCK_SCK))||(k->key_type & (KEYTYPE_SHORT32)))
 		c += snprintf(pbuf + c, sizeof(pbuf) - c, " key_num: %4d", k->key_num);
 
 	c += snprintf(pbuf + c, sizeof(pbuf) - c, ": ");
@@ -157,9 +163,9 @@ uint32_t tea_build_iv(struct tetra_tdma_time *tm, uint16_t hn, uint8_t dir)
 
 static bool generate_keystream(struct tetra_crypto_state *tcs, struct tetra_key *key, struct tetra_tdma_time *t, int num_bits, uint8_t *ks_out)
 {
-	if (!key)
+	if (!key) {
 		return false;
-
+	}
 	/* Construct IV and prepare buf for bytewise keystream */
 	int num_bytes = (num_bits + 7) / 8;
 	uint8_t ks_bytes[num_bytes];
@@ -179,7 +185,13 @@ static bool generate_keystream(struct tetra_crypto_state *tcs, struct tetra_key 
 	/* Generate keystream with required KSG */
 	switch (key->network_info->ksg_type) {
 	case KSG_TEA1:
-		tea1(iv, eck, num_bytes, ks_bytes);
+		if (key->key_type==KEYTYPE_SHORT32) {
+			uint32_t short_key=(key->key[0]<<24)+(key->key[1]<<16)+(key->key[2]<<8)+key->key[3];
+			printf("SQ5BPF: short key %8.8x\n",short_key);
+		tea1(iv, eck, num_bytes, ks_bytes,short_key);
+		} else {
+		tea1(iv, eck, num_bytes, ks_bytes,0);
+		}
 		break;
 
 	case KSG_TEA2:
@@ -251,6 +263,26 @@ bool decrypt_mac_element(struct tetra_crypto_state *tcs, struct tetra_tmvsap_pri
 	return true;
 }
 
+bool get_voice_keystream(struct tetra_crypto_state *tcs, struct tetra_tdma_time *tdma_time, uint8_t *ks,int ks_num_bits)
+{
+	/* TODO FIXME implement proper key selection for voice blocks */
+	struct tetra_key *key = tcs->cck;
+	if (!key)
+		return false;
+
+	if (tcs->cn < 0 || tcs->la < 0 || tcs->cc < 0) {
+		printf("tetra_crypto: can't compute TB5 due to incomplete network info (carr %d la %d cc %d)\n",
+			tcs->cn, tcs->la, tcs->cc);
+		return false;
+	}
+
+	/* Generate keystream */
+	if (!generate_keystream(tcs, key, tdma_time, ks_num_bits, ks))
+		return false;
+
+	return true;
+}
+
 bool decrypt_voice_timeslot(struct tetra_crypto_state *tcs, struct tetra_tdma_time *tdma_time, int16_t *type1_block)
 {
 	/* TODO FIXME implement proper key selection for voice blocks */
@@ -293,9 +325,11 @@ int load_keystore(char *tetra_keyfile)
 	 *
 	 *   key mcc 123 mnc 456 addr 00000000 key_type 1 key_num 002 key 1234deadbeefcafebabe
 	 *   - addr: decimal, only relevant for DCK/MGCK/GCK, also, currently unimplemented
-	 *   - key_type: 1 CCK/SCK, 2 DCK, 3 MGCK, 4 GCK
+	 *   - key_type: 1 CCK/SCK, 2 DCK, 4 MGCK, 8 GCK, 16 SHORT32 TEA1 key
 	 *   - key_num: SCK_VN or group key number depending on type, currently unimplemented
 	 *   - key: 80-bit key hex string
+	 *
+	 *   NOTE: for the short 32bit key pad the key with zeroes --sq5bpf
 	 */
 
 	int i, c;
@@ -448,9 +482,10 @@ void update_current_cck(struct tetra_crypto_state *tcs)
 
 	for (int i = 0; i < tcdb->num_keys; i++) {
 		struct tetra_key *key = &tcdb->keys[i];
+		printf("tetra_crypto: sq5bpf trying key i=%d mcc=%i mnc=%i cckid=%i\n", i,key->mcc,key->mnc,key->key_num); /* TODO: remove this */
 		/* TODO FIXME consider selecting CCK or SCK key type based on network config */
 		if (key->mcc == tcs->mcc && key->mnc == tcs->mnc && key->key_num == tcs->cck_id) {
-			if (key->key_type == KEYTYPE_CCK_SCK) {
+			if ((key->key_type == KEYTYPE_CCK_SCK)||(key->key_type == KEYTYPE_SHORT32)) {
 				tcs->cck = key;
 				printf("tetra_crypto: Set new current_cck %d (type: full)\n", i);
 				break;

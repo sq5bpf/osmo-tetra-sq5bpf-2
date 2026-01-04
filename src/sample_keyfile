@@ -1,0 +1,30 @@
+# Keystore file format (from comment in crypto/tetra_crypto.c):
+# Each line contains network or key definition.
+# Lines starting with # are ignored as comments.
+
+# example:   network mcc 123 mnc 456 ksg_type 1 security_class 2
+
+#    - ksg_type: decimal, see enum tetra_ksg_type:
+#      1: TEA1
+#      2: TEA2
+#      3: TEA3
+#      4: TEA4
+#      5: TEA5
+#      6: TEA6
+#      7: TEA7
+
+#    - security_class: 2 for SCK, 3 for CCK+DCK
+
+#    key mcc 123 mnc 456 addr 00000000 key_type 1 key_num 002 key 1234deadbeefcafebabe
+#    - addr: decimal, only relevant for DCK/MGCK/GCK, also, currently unimplemented
+#    - key_type: 1 CCK/SCK, 2 DCK, 4 MGCK, 8 GCK, 16 32bit shortened TEA1 key (pad to 80 bits with zeroes)
+#    - key_num: SCK_VN or group key number depending on type, currently unimplemented
+#    - key: 80-bit key hex string
+
+
+network mcc 0123 mnc 1337 ksg_type 1 security_class 2
+key mcc 0123 mnc 1337 addr 00000000 key_type 1 key_num 0 key 11111111111111111111
+
+# shortened key 0x12345678 sample:
+# key mcc 0123 mnc 1337 addr 00000000 key_type 16 key_num 0 key 12345678000000000000
+

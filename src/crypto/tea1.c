@@ -6,6 +6,11 @@
  *
  * SPDX-License-Identifier: AGPL-3.0+
  *
+ * NOTE: this has been patched from the original to support
+ * 32bit TEA1 short key and interfacing with telive
+ * Please don't bug the original authors about bugs resulting from these modifications
+ * Jacek Lipkowski <sq5bpf@lipkowski.org>
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -128,12 +133,18 @@ void tea1_inner(uint64_t qwIvReg, uint32_t dwKeyReg, uint32_t dwNumKsBytes, uint
 	}
 }
 
-void tea1(uint32_t dwFrameNumbers, const uint8_t *lpKey, uint32_t dwNumKsBytes, uint8_t *lpKsOut)
+void tea1(uint32_t dwFrameNumbers, const uint8_t *lpKey, uint32_t dwNumKsBytes, uint8_t *lpKsOut, uint32_t short_key)
 {
 	/* Initialize IV and key register */
 	uint64_t qwIvReg = tea1_expand_iv(dwFrameNumbers);
-	uint32_t dwKeyReg = tea1_init_key_register(lpKey);
-
+	uint32_t dwKeyReg;
+	/* short key is the 32-bits of the key shortened by the key weakening function */
+	if (short_key) {
+		dwKeyReg=short_key;
+	} else {
+		dwKeyReg = tea1_init_key_register(lpKey);
+	}
+	printf("SQ5BPF: TEA1 using key 0x%8.8x\n",dwKeyReg);
 	/* Invoke actual TEA1 core function */
 	tea1_inner(qwIvReg, dwKeyReg, dwNumKsBytes, lpKsOut);
 }
