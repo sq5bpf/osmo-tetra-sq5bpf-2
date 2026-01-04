@@ -38,5 +38,7 @@ ulimit -c unlimited
 
 #tetra-rx args: -a turns on pseudo-afc , -i uses an internal float_t_bits
 # -r turns on fragment reassembly, -s tries to dump unknown SDS protocols as text
+# -d dumpdir dumps all voice traffic in dumpdir
+# -k keyfile uses keys from keyfile for decrypting
 # modify as needed
-socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | demod/simdemod3_telive.py | ./tetra-rx -r -s  /dev/stdin 
+socat -b 4096 UDP-RECV:${UDP_PORT} STDOUT | demod/simdemod3_telive.py | ./tetra-rx -r  -k sample_keyfile -s  /dev/stdin 

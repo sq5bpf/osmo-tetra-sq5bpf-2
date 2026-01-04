@@ -154,6 +154,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 	uint8_t type3dp[512*4];
 	uint8_t type3[512];
 	uint8_t type2[512];
+	int decrypted=0;
 
 	const struct tetra_blk_param *tbp = &tetra_blk_param[type];
 	struct tetra_mac_state *tms = priv;
@@ -166,7 +167,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 
 	struct msgb *msg;
 
-        unsigned char tmpstr[1380+13];
+        unsigned char tmpstr[1380+20];
 
         tetra_hack_packet_counter++;
         tetra_hack_packet_counter=tetra_hack_packet_counter%65536;
@@ -207,63 +208,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 	if (tms->cur_burst.is_traffic && type == TPSAP_T_NDB && blk_num == BLK_1)
 		tms->cur_burst.blk1_stolen = true;
 
-	/* If this is a traffic channel, dump. */
-	if (tms->cur_burst.is_traffic && (type == TPSAP_T_SCH_F || (blk_num == BLK_2 && !tms->cur_burst.blk2_stolen))) {
-		char fname[PATH_MAX];
-		int16_t block[690];
-		FILE *f;
-		int i;
 
-		/* Generate a block */
-		memset(block, 0x00, sizeof(int16_t) * 690);
-		for (i = 0; i < 6; i++)
-			block[115*i] = 0x6b21 + i;
-
-		for (i = 0; i < 114; i++)
-			block[1+i] = type4[i] ? -127 : 127;
-
-		for (i = 0; i < 114; i++)
-			block[116+i] = type4[114+i] ? -127 : 127;
-
-		for (i = 0; i < 114; i++)
-			block[231+i] = type4[228+i] ? -127 : 127;
-
-		for (i = 0; i < 90; i++)
-			block[346+i] = type4[342+i] ? -127 : 127;
-
-		if (tms->dumpdir) {
-		/* Open target file */
-		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.out", tms->dumpdir,
-			tms->cur_burst.is_traffic, tms->tsn);
-		f = fopen(fname, "ab");
-		if (!f) {
-			fprintf(stderr, "Could not open dump file %s for writing: %s\n", fname, strerror(errno));
-			exit(1);
-		}
-
-		/* Write it */
-		fwrite(block, sizeof(int16_t), 690, f);
-		fclose(f);
-
-		/* Write used ssi */
-		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.txt", tms->dumpdir,
-			tms->cur_burst.is_traffic, tms->tsn);
-		f = fopen(fname, "a");
-		fprintf(f, "%d\n", tms->ssi);
-		fclose(f);
-		}
-
-                /* send voice frames for further processing --sq5bpf */
-                if (tetra_hack_live_socket) {
-                        sprintf(tmpstr,"TRA:%2.2x RX:%2.2x\0",tms->cur_burst.is_traffic,tetra_hack_rxid);
-                        memcpy(tmpstr+13,block,sizeof(block));
-
-                        sendto(tetra_hack_live_socket, (char *)&tmpstr, sizeof(block)+13, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
-
-                }
-
-		goto out;
-	}
 
 	if (tbp->interleave_a) {
 		/* Run block deinterleaving: type-3 bits */
@@ -354,6 +299,109 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 	default:
 		/* FIXME: do something */
 		break;
+	}
+
+	/* If this is a traffic channel, dump. */
+	if (tms->cur_burst.is_traffic && (type == TPSAP_T_SCH_F || (blk_num == BLK_2 && !tms->cur_burst.blk2_stolen))) {
+		char fname[PATH_MAX];
+		int16_t block[690];
+		FILE *f;
+		int i;
+
+
+		/* Generate a block */
+		memset(block, 0x00, sizeof(int16_t) * 690);
+		for (i = 0; i < 6; i++)
+			block[115*i] = 0x6b21 + i;
+
+		for (i = 0; i < 114; i++)
+			block[1+i] = type4[i] ? -127 : 127;
+
+		for (i = 0; i < 114; i++)
+			block[116+i] = type4[114+i] ? -127 : 127;
+
+		for (i = 0; i < 114; i++)
+			block[231+i] = type4[228+i] ? -127 : 127;
+
+		for (i = 0; i < 90; i++)
+			block[346+i] = type4[342+i] ? -127 : 127;
+
+		/* patch keystream into unused fifth block into the lower nibbles --sq5bpf */
+		/* this requires a patched tetra codec from here: https://github.com/sq5bpf/install-tetra-codec */
+		int ks_num_bits=2*137;
+		uint8_t ks[ks_num_bits];
+		if (get_voice_keystream(tcs,&tcd->time,ks,ks_num_bits)) {
+			uint16_t a;
+			int l=461;
+			a=0;
+			for (i=0;i<ks_num_bits;i++) {
+				if (i%4==0) {
+					if (i) {
+						block[l]=a;
+						l++;
+					}
+					a=0;
+				}
+				a=a<<1;
+				if (ks[i])  a|=1;
+			}
+			a=a<<2; /* ks_num_bits is not divisable by 4 so we fudge it --sq5bpf */
+			block[l]=a;
+
+			decrypted=1;
+
+			/* for debugging, change the if(0) to whatever you want to dump --sq5bpf */
+			if (0) {
+			char gg[4096];
+			sprintf(gg,"*** keystream:\n");
+			for (i=0;i<ks_num_bits;i++) {
+				char f[32];
+
+				if (i%16==0) {
+					if (i) strcat(gg,"\n");
+					sprintf(f,"%3i 0x%3.3x:  ",i,i);
+					strcat(gg,f);
+				}
+				sprintf(f," %x",ks[i]);
+				strcat(gg,f);
+			}
+			strcat(gg,"\n\n\n");
+			fprintf(stderr,"%s",gg);
+			}	
+		}
+
+		if (tms->dumpdir) {
+		/* Open target file */
+		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.out", tms->dumpdir,
+			tms->cur_burst.is_traffic, tms->tsn);
+		f = fopen(fname, "ab");
+		if (!f) {
+			fprintf(stderr, "Could not open dump file %s for writing: %s\n", fname, strerror(errno));
+			exit(1);
+		}
+
+		/* Write it */
+		fwrite(block, sizeof(int16_t), 690, f);
+		fclose(f);
+
+		/* Write used ssi */
+		snprintf(fname, sizeof(fname), "%s/traffic_%d_%d.txt", tms->dumpdir,
+			tms->cur_burst.is_traffic, tms->tsn);
+		f = fopen(fname, "a");
+		fprintf(f, "%d\n", tms->ssi);
+		fclose(f);
+		}
+
+                /* send voice frames for further processing --sq5bpf */
+                if (tetra_hack_live_socket) {
+                        sprintf(tmpstr,"TRA:%2.2x RX:%2.2x DECR:%i\0",tms->cur_burst.is_traffic,tetra_hack_rxid,decrypted);
+                        memcpy(tmpstr+20,block,sizeof(block));
+
+                        sendto(tetra_hack_live_socket, (char *)&tmpstr, sizeof(block)+20, 0, (struct sockaddr *)&tetra_hack_live_sockaddr, tetra_hack_socklen);
+
+                }
+
+		goto out;
 	}
 
 	int pdu_bits = 0;

@@ -44,8 +44,8 @@
 struct fragslot fragslots[FRAGSLOT_NR_SLOTS] = {0};
 
 
-static int last_encoption;
-static int last_seen_encryption;
+static int last_encoption=0;
+static int last_seen_encryption=0;
 
 void send_encinfo(int send_anyway) {
         char tmpstr[1024];
@@ -131,8 +131,8 @@ static int rx_bcast(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms)
 	printf("BNCH SYSINFO (DL %u Hz, UL %u Hz), service_details 0x%04x ",
 		dl_freq, ul_freq, sid.mle_si.bs_service_details);
 
-    /* sometimes we get bogus SYSINFO with sid.mle_si.bs_service_details==0, so instead of finding out why, we'll just ignore it */
-// fixme --sq5bpf        if (sid.mle_si.bs_service_details==0) return;
+    /* sometimes we get bogus SYSINFO with sid.mle_si.bs_service_details==0, so instead of finding out why, we'll just ignore it --sq5bpf */
+	if (sid.mle_si.bs_service_details==0) return;
 
           /* sq5bpf */
         if ((sid.mle_si.bs_service_details)&&((tetra_hack_freq_band!=sid.freq_band)||
@@ -301,7 +301,7 @@ static int rx_resrc(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms)
 		printf(" SlotGrant=%u/%u", rsd.slot_granting.nr_slots,
 			rsd.slot_granting.delay);
 
- tmpval=tetra_hack_seen_encryptions;
+	tmpval=tetra_hack_seen_encryptions;
         tetra_hack_seen_encryptions|= (1<<rsd.encryption_mode);
         if (tmpval!=tetra_hack_seen_encryptions) send_encinfo(0);
 
