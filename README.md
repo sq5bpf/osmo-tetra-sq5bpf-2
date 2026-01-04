@@ -30,6 +30,8 @@ And i have also added support for using the TEA1 shortened 32bit key.
 Note: this code does not break encryption, you still need to have the keys.
 
 
+Also note that this requires telive-2.
+
 Jacek / SQ5BPF
 
 
