@@ -4,8 +4,11 @@ https://github.com/BorjanEch0/osmo-tetra
 Which is a fork of the original Osmocom TETRA MAC/PHY experimentation code from here:
 https://gitea.osmocom.org/tetra/osmo-tetra
 
-Which incorporates some of my patches from here:
+Which incorporates some of my patches to a previous version of osmo-tetra from here:
 https://github.com/sq5bpf/osmo-tetra-sq5bpf
+
+Note: the new osmo-tetra versions will coredump with a lot of real world 
+traffic, so this fork will do it too.
 
 
 Basically i'm re-adding ma patches for telive to the new version.
@@ -15,8 +18,16 @@ expect it to do anything useful or not break your stuff.
 Actually you're lucky if it even compiles.
 
 
-The new osmo-tetra versions will coredump with a lot of real world 
-traffic, so this fork will do it too.
+I have also added support for decrypting voice traffic, this needs 
+thr patched tetra codec which can be installed via the script from here:
+https://github.com/sq5bpf/install-tetra-codec
+
+As far as i know this is the first publically avaliable source which will
+decrypt voice traffic.
+
+And i have also added support for using the TEA1 shortened 32bit key.
+
+Note: this code does not break encryption, you still need to have the keys.
 
 
 Jacek / SQ5BPF
