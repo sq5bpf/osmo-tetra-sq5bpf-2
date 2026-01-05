@@ -355,6 +355,25 @@ static int rx_resrc(struct tetra_tmvsap_prim *tmvp, struct tetra_mac_state *tms)
 out:
 	printf("\n");
 
+	if (rsd.encryption_mode && rsd.is_encrypted && (msgb_l2len(msg)>=32)) {
+		/* show possible inputs to https://github.com/hassanTripleA/tea_crack_CT/ --sq5bpf */	
+		struct tetra_tdma_time tt = t_phy_state.time;
+		uint32_t ct=0;
+		uint8_t *cur = msg->l2h;
+
+		int i;
+		for(i=0;i<32;i++) {
+			ct<<=1;
+			ct|=*cur;
+			cur++;
+		}
+
+		printf("SQ5BPF: (%i/%i/%i) len:%i cckid:%i key recovery candidate: [1 %i %i %i %i 0 %8.8x]\n",tcs->hn,tt.mn,tt.fn,msgb_l2len(msg),tcs->cck_id,tcs->hn,tt.mn,tt.fn,tt.tn,ct);
+
+	}
+
+
+
         /* sq5bpf */
         //if (rsd.encryption_mode==0) 
         {

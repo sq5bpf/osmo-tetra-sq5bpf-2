@@ -232,19 +232,7 @@ void tp_sap_udata_ind(enum tp_sap_data_type type, int blk_num, const uint8_t *bi
 			printf("OK\n");
 			tup->crc_ok = 1;
 			printf("%s %s type1: %s\n", tbp->name, time_str,
-				osmo_ubit_dump(type2, tbp->type1_bits));
-			/* show possible inputs to https://github.com/hassanTripleA/tea_crack_CT/ --sq5bpf */
-			if ((type==TPSAP_T_SCH_F)&&(tbp->type1_bits==268)&&(tcs->cck_id!=-1)) {
-				struct tetra_tdma_time *tt=&tcd->time;
-				int i;
-				uint32_t ct=0;
-				for(i=0;i<32;i++) {
-					ct<<=1;
-					ct|=type2[49+i];
-				}
-				printf("\nSQ5BPF cckid:%i key recovery candidate: [1 %i %i %i %i 0 %8.8x]\n",tcs->cck_id,tcs->hn,tt->mn,tt->fn,tt->tn,ct);
-
-			}
+					osmo_ubit_dump(type2, tbp->type1_bits));
 		} else
 			printf("WRONG\n");
 	} else if (type == TPSAP_T_BBK) {
